@@ -5,189 +5,234 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>专属日程规划</title>
     <style>
-        /* 基础背景与字体 */
-        body { background-color: #d8d8d8; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; overflow: hidden; }
+        /* 全局黑白极简风格 */
+        body { background-color: #d8d8d8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 20px; min-height: 100vh; overflow-x: hidden; }
 
-        /* 主白板排版 */
-        .main-card { background: #ffffff; border-radius: 20px; box-shadow: 0 12px 40px rgba(0,0,0,0.15); width: 90%; max-width: 800px; min-height: 400px; padding: 50px 40px; position: relative; }
+        /* 四角悬浮按钮 */
+        .corner-btn { position: fixed; width: 60px; height: 60px; background: #000; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 8px 25px rgba(0,0,0,0.3); cursor: pointer; z-index: 100; transition: transform 0.2s; border: none; }
+        .corner-btn:active { transform: scale(0.9); }
+        .btn-tl { top: 30px; left: 30px; } /* 左上角 */
+        .btn-tr { top: 30px; right: 30px; } /* 右上角: 搜索 */
+        .btn-bl { bottom: 30px; left: 30px; background: #fff; color: #000; border: 2px solid #eee; } /* 左下角 */
+        .btn-br { bottom: 30px; right: 30px; font-size: 35px; } /* 右下角: 新增 */
 
-        .status-badge { display: inline-block; padding: 8px 20px; border-radius: 30px; font-size: 1.2em; font-weight: bold; margin-bottom: 20px; letter-spacing: 1px; }
-        .status-active { background-color: #e8f5e9; color: #2e7d32; border: 2px solid #c8e6c9; }
-        
-        .task-title { font-size: 3.5em; font-weight: bold; color: #111; margin-bottom: 10px; word-wrap: break-word; line-height: 1.2; width: 100%; }
-        .task-time { font-size: 1.8em; color: #444; margin: 5px 0; font-weight: bold; display: block; }
-        .task-location { font-size: 1.5em; color: #888; display: block; margin-bottom: 30px; }
+        /* 灵动岛搜索栏 */
+        .dynamic-island { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); width: 80%; max-width: 400px; background: #000; color: #fff; border-radius: 30px; padding: 15px 25px; display: flex; align-items: center; justify-content: space-between; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 200; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
+        .dynamic-island.active { top: 40px; }
+        .dynamic-island input { background: transparent; border: none; color: #fff; font-size: 16px; outline: none; width: 100%; }
+        .dynamic-island input::placeholder { color: #888; }
 
-        /* 专属斜杠进度条 */
-        .progress-container { margin-top: 50px; }
-        .progress-bar { width: 100%; height: 12px; background-color: #f0f0f0; border-radius: 10px; overflow: hidden; position: relative; }
-        .progress-fill { height: 100%; background: repeating-linear-gradient( 45deg, #000, #000 15px, #333 15px, #333 30px ); width: 0%; transition: width 0.5s ease-in-out; }
-        .progress-text { display: flex; justify-content: space-between; margin-top: 15px; font-size: 1.1em; color: #666; font-weight: bold; font-family: monospace; }
+        /* 白板主容器 */
+        .main-board { max-width: 900px; margin: 80px auto; padding-bottom: 100px; }
 
-        /* 右下角悬浮加号 */
-        .fab { position: fixed; bottom: 40px; right: 40px; width: 70px; height: 70px; background-color: #000; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; box-shadow: 0 8px 25px rgba(0,0,0,0.3); cursor: pointer; transition: transform 0.2s; z-index: 100; }
-        .fab:active { transform: scale(0.9); }
+        /* 日期分组 Header */
+        .date-header { font-size: 24px; font-weight: 800; color: #111; margin: 40px 0 20px 10px; display: flex; align-items: center; }
+        .date-header::before { content: ""; display: block; width: 6px; height: 24px; background: #000; margin-right: 15px; border-radius: 3px; }
 
-        /* 弹窗及内部排版 */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(5px); }
-        .modal-content { background: white; padding: 40px; border-radius: 25px; width: 85%; max-width: 450px; position: relative; }
-        .modal-content h3 { margin-top: 0; font-size: 1.8em; font-weight: bold; margin-bottom: 25px; }
+        /* 固定尺寸网格卡片 */
+        .task-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; }
+        .task-card { background: #fff; border-radius: 20px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); position: relative; overflow: hidden; }
+        .task-type { font-size: 12px; font-weight: bold; padding: 5px 12px; background: #eee; border-radius: 12px; display: inline-block; margin-bottom: 15px; color: #555; }
+        .task-card-title { font-size: 22px; font-weight: bold; margin-bottom: 10px; color: #000; line-height: 1.3; }
+        .task-card-info { font-size: 14px; color: #888; display: flex; flex-direction: column; gap: 8px; font-family: monospace; }
+
+        /* 模态框与极简排版 */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(8px); }
+        .modal-content { background: white; padding: 40px; border-radius: 25px; width: 85%; max-width: 400px; position: relative; } /* 设置 relative 为破形对齐做准备 */
+        .modal-title { font-size: 24px; font-weight: 800; margin-top: 0; margin-bottom: 30px; }
         
         .input-group { margin-bottom: 20px; }
-        .input-group label { display: block; font-size: 1.1em; color: #555; margin-bottom: 8px; font-weight: bold; }
-        .input-group input, .input-group select { width: 100%; padding: 15px; border: 2px solid #eee; border-radius: 12px; font-size: 1.1em; box-sizing: border-box; background: #fafafa; outline: none; }
+        .input-group label { display: block; font-size: 12px; font-weight: bold; color: #888; margin-bottom: 8px; text-transform: uppercase; }
+        .input-group input, .input-group select { width: 100%; padding: 15px; border: 2px solid #eee; border-radius: 12px; font-size: 16px; background: #f9f9f9; outline: none; box-sizing: border-box; }
         .input-group input:focus, .input-group select:focus { border-color: #000; }
-
         .flex-row { display: flex; gap: 15px; }
-        .flex-row .input-group { flex: 1; }
 
-        /* 底部左右分布的圆圈按钮：✓ 和 ✕ */
-        .modal-footer { display: flex; justify-content: space-between; margin-top: 35px; }
-        .btn-icon { width: 60px; height: 60px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .btn-cancel { background: #fff; color: #000; border: 2px solid #eee; }
-        .btn-save { background: #000; color: #fff; }
-        .btn-icon:active { transform: scale(0.9); }
+        /* 🔥 核心灵魂：破形对齐的 ✓ 和 ✕ */
+        .broken-btn { position: absolute; bottom: 0; width: 65px; height: 65px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: bold; cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,0.2); transition: transform 0.2s; }
+        .broken-btn:active { transform: scale(0.9) !important; }
+        
+        /* ✕ 左下角圆心对齐顶点 */
+        .btn-cancel-broken { left: 0; background: #fff; color: #000; border: 2px solid #ddd; transform: translate(-30%, 30%); }
+        
+        /* ✓ 右下角圆心对齐顶点 */
+        .btn-save-broken { right: 0; background: #000; color: #fff; transform: translate(30%, 30%); }
+
     </style>
 </head>
 <body>
 
-    <div class="main-card">
-        <div id="status-badge" class="status-badge status-active">LOADING...</div>
-        <div class="task-title" id="display-title">等待同步...</div>
-        <div class="task-time" id="display-time">--:--</div>
-        <div class="task-location" id="display-location">@ ---</div>
-        
-        <div class="progress-container">
-            <div class="progress-bar">
-                <div class="progress-fill" id="pb"></div>
-            </div>
-            <div class="progress-text">
-                <span>PROGRESS</span>
-                <span id="pt">0/100</span>
-            </div>
-        </div>
+    <button class="corner-btn btn-tl" onclick="alert('菜单功能已就绪')">☰</button>
+    <button class="corner-btn btn-tr" onclick="toggleSearch()">🔍</button>
+    <button class="corner-btn btn-bl" onclick="loadData()">↻</button>
+    <button class="corner-btn btn-br" onclick="openModal()">+</button>
+
+    <div class="dynamic-island" id="searchIsland">
+        <input type="text" id="searchInput" placeholder="搜索任务..." onkeyup="searchTasks()">
+        <span style="cursor: pointer;" onclick="toggleSearch()">✕</span>
     </div>
 
-    <!-- 唤醒弹窗的按钮 -->
-    <div class="fab" onclick="openModal()">+</div>
+    <div class="main-board" id="board-container">
+        </div>
 
-    <!-- 新增计划面板 -->
     <div class="modal" id="taskModal">
         <div class="modal-content">
-            <h3>NEW PLAN</h3>
+            <h3 class="modal-title">NEW PLAN</h3>
             
             <div class="input-group">
-                <label>任务名称</label>
-                <input type="text" id="taskName" placeholder="输入任务名称...">
+                <label>Task Name</label>
+                <input type="text" id="taskName" placeholder="例如: Engineering Mathematics">
             </div>
 
             <div class="input-group">
-                <label>任务类型</label>
+                <label>Category</label>
                 <select id="taskType">
                     <option value="Learning">📖 学习 (Learning)</option>
                     <option value="Creative">✍️ 创作 (Creative)</option>
                     <option value="Life">🏠 生活 (Life)</option>
-                    <option value="Entertainment">🎮 娱乐 (Entertainment)</option>
+                    <option value="Game">🎮 娱乐 (Game)</option>
                 </select>
             </div>
 
             <div class="flex-row">
-                <div class="input-group">
-                    <label>开始时间</label>
-                    <input type="time" id="taskTime">
+                <div class="input-group" style="flex: 1;">
+                    <label>Date</label>
+                    <input type="date" id="taskDate">
                 </div>
-                <div class="input-group">
-                    <label>地点</label>
-                    <input type="text" id="taskLocation" placeholder="输入地点...">
+                <div class="input-group" style="flex: 1;">
+                    <label>Time</label>
+                    <input type="time" id="taskTime">
                 </div>
             </div>
 
-            <!-- 原汁原味的 ✕ 和 ✓ 按键 -->
-            <div class="modal-footer">
-                <button class="btn-icon btn-cancel" onclick="closeModal()">✕</button>
-                <button class="btn-icon btn-save" onclick="saveTask()">✓</button>
+            <div class="input-group">
+                <label>Location</label>
+                <input type="text" id="taskLocation" placeholder="如: APU Library">
             </div>
+
+            <button class="broken-btn btn-cancel-broken" onclick="closeModal()">✕</button>
+            <button class="broken-btn btn-save-broken" onclick="saveTask()">✓</button>
         </div>
     </div>
 
     <script>
-        // ======= 这里必须替换成你的 =======
+        // ====== 请填入你之前的密钥 ======
         const BIN_ID = '69f966eeaaba8821977110ff'; 
         const API_KEY = '$2a$10$wMi0hs1j8z3avrDPrAIDEeBxC15MlrFUV9SIdKMxtYwQHKCw76GDy';
-        // ===================================
-        
+        // ==============================
+
         let allTasks = [];
 
+        // 设置默认日期为今天
+        document.getElementById('taskDate').valueAsDate = new Date();
+
         async function loadData() {
+            document.getElementById('board-container').innerHTML = '<h2 style="text-align:center; margin-top:50px;">正在从云端同步...</h2>';
             try {
                 const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
                     headers: { 'X-Master-Key': API_KEY }
                 });
                 const data = await res.json();
                 allTasks = data.record.tasks || [];
-                updateDisplay();
+                renderTasks(allTasks);
             } catch (err) { 
-                console.error("加载失败", err); 
-                document.getElementById('display-title').innerText = "数据同步失败";
+                console.error("加载失败", err);
+                document.getElementById('board-container').innerHTML = '<h2 style="text-align:center;">同步失败，请检查密钥</h2>';
             }
         }
 
+        // 核心渲染逻辑：按日期分组 + 网格布局
+        function renderTasks(tasksToRender) {
+            const board = document.getElementById('board-container');
+            board.innerHTML = '';
+
+            if (tasksToRender.length === 0) {
+                board.innerHTML = '<h2 style="text-align:center; color:#888; margin-top:100px;">暂无计划，点击右下角添加</h2>';
+                return;
+            }
+
+            // 按日期将任务分类
+            const groupedTasks = tasksToRender.reduce((groups, task) => {
+                const date = task.date || '未分类日期';
+                if (!groups[date]) groups[date] = [];
+                groups[date].push(task);
+                return groups;
+            }, {});
+
+            // 按日期倒序排列（最新的在最上面）
+            const sortedDates = Object.keys(groupedTasks).sort((a, b) => new Date(b) - new Date(a));
+
+            sortedDates.forEach(date => {
+                // 生成 Header
+                const header = document.createElement('div');
+                header.className = 'date-header';
+                header.innerText = date;
+                board.appendChild(header);
+
+                // 生成网格容器
+                const grid = document.createElement('div');
+                grid.className = 'task-grid';
+
+                // 填充网格卡片
+                groupedTasks[date].forEach(task => {
+                    const card = document.createElement('div');
+                    card.className = 'task-card';
+                    card.innerHTML = `
+                        <div class="task-type">${task.type}</div>
+                        <div class="task-card-title">${task.name}</div>
+                        <div class="task-card-info">
+                            <span>🕒 ${task.time || '--:--'}</span>
+                            <span>📍 ${task.location || '未定'}</span>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+                board.appendChild(grid);
+            });
+        }
+
+        // 灵动岛搜索逻辑
+        function toggleSearch() {
+            const island = document.getElementById('searchIsland');
+            island.classList.toggle('active');
+            if(island.classList.contains('active')) {
+                document.getElementById('searchInput').focus();
+            }
+        }
+
+        function searchTasks() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allTasks.filter(t => t.name.toLowerCase().includes(query) || (t.location && t.location.toLowerCase().includes(query)));
+            renderTasks(filtered);
+        }
+
         function openModal() { document.getElementById('taskModal').style.display = 'flex'; }
-        function closeModal() { document.getElementById('taskModal').style.display = 'none'; }
+        
+        function closeModal() { 
+            document.getElementById('taskModal').style.display = 'none'; 
+            document.getElementById('taskName').value = '';
+        }
 
         async function saveTask() {
             const name = document.getElementById('taskName').value;
-            const type = document.getElementById('taskType').value;
+            const type = document.getElementById('taskType').options[document.getElementById('taskType').selectedIndex].text;
+            const date = document.getElementById('taskDate').value;
             const time = document.getElementById('taskTime').value;
             const loc = document.getElementById('taskLocation').value;
 
-            if (!name || !time) { alert("请填写任务名称和时间！"); return; }
+            if (!name) { alert("任务名称不能为空！"); return; }
 
-            const newTask = { 
-                name, type, time, 
-                location: loc || "未定", 
-                createdAt: new Date().toISOString() 
-            };
+            const newTask = { name, type, date, time, location: loc, createdAt: new Date().toISOString() };
             allTasks.push(newTask);
 
+            closeModal();
+            renderTasks(allTasks); // 本地先更新，提供秒级交互感
+
+            // 后台同步到云端
             await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
                 body: JSON.stringify({ tasks: allTasks })
             });
-
-            // 保存后自动清空输入框
-            document.getElementById('taskName').value = '';
-            document.getElementById('taskTime').value = '';
-            document.getElementById('taskLocation').value = '';
-
-            closeModal();
-            updateDisplay();
-        }
-
-        function updateDisplay() {
-            if (allTasks.length > 0) {
-                const latest = allTasks[allTasks.length - 1];
-                document.getElementById('display-title').innerText = latest.name;
-                document.getElementById('display-time').innerText = latest.time;
-                document.getElementById('display-location').innerText = "@ " + latest.location;
-                
-                const typeMap = {
-                    "Learning": "LEARNING",
-                    "Creative": "CREATIVE",
-                    "Life": "LIFE",
-                    "Entertainment": "ENTERTAINMENT"
-                };
-                document.getElementById('status-badge').innerText = typeMap[latest.type] || "TASK";
-                
-                // 恢复进度条的动画逻辑
-                const randomProgress = Math.floor(Math.random() * 40) + 60;
-                document.getElementById('pb').style.width = randomProgress + '%';
-                document.getElementById('pt').innerText = randomProgress + ' / 100';
-            } else {
-                document.getElementById('display-title').innerText = "暂无任务";
-                document.getElementById('status-badge').innerText = "EMPTY";
-            }
         }
 
         window.onload = loadData;
