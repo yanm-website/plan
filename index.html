@@ -3,78 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>智能日程规划</title>
+    <title>我的云端日程 App</title>
     <style>
-        /* 基础样式保持你喜欢的风格 */
-        body { background-color: #d8d8d8; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; overflow: hidden; }
-        .main-card { background: #ffffff; border-radius: 20px; box-shadow: 0 12px 40px rgba(0,0,0,0.15); width: 90%; max-width: 800px; min-height: 400px; padding: 50px 40px; position: relative; }
+        /* 1. 恢复：全局样式与背景 */
+        body { background-color: #d8d8d8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
         
-        /* 联想列表专用样式 */
-        .suggestion-list {
-            position: absolute;
-            background: white;
-            border: 1px solid #ddd;
-            border-top: none;
-            border-radius: 0 0 10px 10px;
-            max-height: 200px;
-            overflow-y: auto;
-            width: calc(100% - 2px);
-            z-index: 1000;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            display: none;
-        }
-        .suggestion-item {
-            padding: 12px 15px;
-            cursor: pointer;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            justify-content: space-between;
-        }
-        .suggestion-item:hover { background-color: #f5f5f5; }
-        .suggestion-count { color: #888; font-size: 0.8em; }
+        /* 2. 恢复：主卡片与排版 */
+        .main-card { background: #ffffff; border-radius: 24px; box-shadow: 0 15px 50px rgba(0,0,0,0.1); width: 90%; max-width: 500px; padding: 40px; position: relative; }
+        .status-badge { background: #000; color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 12px; display: inline-block; margin-bottom: 20px; font-weight: bold; }
+        .task-title { font-size: 32px; font-weight: 800; color: #000; margin-bottom: 10px; line-height: 1.2; }
+        .task-info { color: #666; font-size: 16px; margin-bottom: 30px; display: flex; gap: 15px; }
+        
+        /* 3. 恢复：斜杠进度条样式 */
+        .progress-container { margin-top: 40px; }
+        .progress-bar { height: 8px; background: #eee; border-radius: 4px; overflow: hidden; position: relative; }
+        .progress-fill { height: 100%; background: #000; width: 0%; transition: width 0.5s ease; }
+        .progress-text { display: flex; justify-content: space-between; margin-top: 10px; font-family: monospace; font-size: 14px; color: #999; }
 
-        /* 其他原有样式省略，保持一致... */
-        .input-group { position: relative; margin-bottom: 20px; }
-        input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
-        .fab { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; background: #000; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
-        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 80%; max-width: 400px; }
+        /* 4. 恢复：浮动加号 */
+        .fab { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; background: #000; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 35px; cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,0.2); transition: 0.3s; z-index: 100; }
+        .fab:active { transform: scale(0.9); }
+
+        /* 5. 恢复：新增面板（Modal） */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(5px); }
+        .modal-content { background: white; padding: 30px; border-radius: 24px; width: 85%; max-width: 380px; position: relative; min-height: 400px; }
+        .modal-content h3 { margin-top: 0; font-size: 20px; font-weight: 800; }
+        
+        /* 6. 输入框样式 */
+        .input-group { margin-bottom: 15px; position: relative; }
+        label { display: block; font-size: 12px; color: #999; margin-bottom: 5px; font-weight: bold; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #eee; border-radius: 12px; font-size: 14px; box-sizing: border-box; background: #fafafa; }
+
+        /* 7. 智能联想列表样式 */
+        .suggestion-list { position: absolute; background: white; border: 1px solid #eee; border-radius: 0 0 12px 12px; max-height: 150px; overflow-y: auto; width: 100%; z-index: 1001; box-shadow: 0 10px 20px rgba(0,0,0,0.1); display: none; }
+        .suggestion-item { padding: 12px 15px; cursor: pointer; border-bottom: 1px solid #f9f9f9; display: flex; justify-content: space-between; font-size: 14px; }
+        .suggestion-item:hover { background-color: #f0f0f0; }
+        .suggestion-count { color: #ccc; font-size: 11px; }
+
+        /* 8. ✓ 和 ✕ 按键定位 */
+        .modal-footer { display: flex; justify-content: space-between; position: absolute; bottom: 30px; left: 30px; right: 30px; }
+        .btn-icon { width: 50px; height: 50px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; transition: 0.2s; }
+        .btn-cancel { background: #f5f5f5; color: #999; } /* ✕ */
+        .btn-save { background: #000; color: #fff; }    /* ✓ */
+        .btn-icon:active { transform: scale(0.9); }
     </style>
 </head>
 <body>
 
     <div class="main-card">
-        <div id="task-container">
-            <!-- 任务显示区域 -->
-            <div class="status-badge status-active">进行中</div>
-            <div class="task-title" id="display-title">等待加载...</div>
-            <div class="task-time" id="display-time">--:--</div>
+        <div id="status-badge" class="status-badge">---</div>
+        <div class="task-title" id="display-title">加载中...</div>
+        <div class="task-info">
+            <span id="display-time">--:--</span>
+            <span id="display-location">---</span>
+        </div>
+        
+        <div class="progress-container">
+            <div class="progress-bar"><div class="progress-fill" id="pb"></div></div>
+            <div class="progress-text">
+                <span>PROGRESS</span>
+                <span id="pt">0/100</span>
+            </div>
         </div>
     </div>
 
     <div class="fab" onclick="openModal()">+</div>
 
-    <!-- 新增任务面板 -->
     <div class="modal" id="taskModal">
         <div class="modal-content">
-            <h3>新增计划</h3>
+            <h3>NEW PLAN</h3>
+            
             <div class="input-group">
-                <input type="text" id="taskName" placeholder="任务名称 (例如: Engineering Mathematics)" oninput="handleInput(this)" autocomplete="off">
+                <label>任务名称</label>
+                <input type="text" id="taskName" placeholder="例如: Engineering Mathematics" oninput="handleInput(this)" autocomplete="off">
                 <div id="suggestionBox" class="suggestion-list"></div>
             </div>
-            <input type="time" id="taskTime" style="margin-bottom: 20px;">
-            <button onclick="saveTask()" style="width: 100%; padding: 12px; background: #000; color: #fff; border: none; border-radius: 8px;">保存计划</button>
-            <button onclick="closeModal()" style="width: 100%; padding: 10px; background: none; border: none; color: #666; margin-top: 10px;">取消</button>
+
+            <div class="input-group">
+                <label>任务类型</label>
+                <select id="taskType">
+                    <option value="Learning">📖 学习 (Academic)</option>
+                    <option value="Creative">✍️ 创作 (Creative)</option>
+                    <option value="Life">🏠 生活 (Life)</option>
+                    <option value="Entertainment">🎮 娱乐 (Game)</option>
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <div class="input-group" style="flex: 1;">
+                    <label>开始时间</label>
+                    <input type="time" id="taskTime">
+                </div>
+                <div class="input-group" style="flex: 1;">
+                    <label>地点</label>
+                    <input type="text" id="taskLocation" placeholder="如: APU Library">
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-icon btn-cancel" onclick="closeModal()">✕</button>
+                <button class="btn-icon btn-save" onclick="saveTask()">✓</button>
+            </div>
         </div>
     </div>
 
     <script>
-        // 配置你的 JSONBin 信息
+        // ======= 关键配置：请填入你的信息 =======
         const BIN_ID = '69f966eeaaba8821977110ff'; 
         const API_KEY = '$2a$10$wMi0hs1j8z3avrDPrAIDEeBxC15MlrFUV9SIdKMxtYwQHKCw76GDy';
+        // =====================================
+
         let allTasks = [];
 
-        // 获取数据
         async function loadData() {
             try {
                 const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
@@ -90,15 +130,9 @@
         function handleInput(input) {
             const val = input.value.toLowerCase();
             const box = document.getElementById('suggestionBox');
-            
-            if (!val) {
-                box.style.display = 'none';
-                return;
-            }
+            if (!val) { box.style.display = 'none'; return; }
 
-            // 1. 提取并过滤：一个月内的任务 + 名称匹配
             const oneMonthAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-            
             const stats = allTasks.reduce((acc, task) => {
                 const taskTime = new Date(task.createdAt || 0).getTime();
                 if (task.name.toLowerCase().includes(val) && taskTime > oneMonthAgo) {
@@ -107,7 +141,6 @@
                 return acc;
             }, {});
 
-            // 2. 排序：按频率从高到低
             const sorted = Object.keys(stats).sort((a, b) => stats[b] - stats[a]);
 
             if (sorted.length > 0) {
@@ -118,9 +151,7 @@
                     </div>
                 `).join('');
                 box.style.display = 'block';
-            } else {
-                box.style.display = 'none';
-            }
+            } else { box.style.display = 'none'; }
         }
 
         function selectSuggestion(name) {
@@ -133,13 +164,19 @@
 
         async function saveTask() {
             const name = document.getElementById('taskName').value;
+            const type = document.getElementById('taskType').value;
             const time = document.getElementById('taskTime').value;
-            if (!name || !time) return;
+            const loc = document.getElementById('taskLocation').value;
 
-            const newTask = { name, time, createdAt: new Date().toISOString() };
+            if (!name || !time) { alert("请填写名称和时间"); return; }
+
+            const newTask = { 
+                name, type, time, 
+                location: loc || "Anywhere", 
+                createdAt: new Date().toISOString() 
+            };
             allTasks.push(newTask);
 
-            // 存入云端
             await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
@@ -155,6 +192,13 @@
                 const latest = allTasks[allTasks.length - 1];
                 document.getElementById('display-title').innerText = latest.name;
                 document.getElementById('display-time').innerText = latest.time;
+                document.getElementById('display-location').innerText = "@ " + latest.location;
+                document.getElementById('status-badge').innerText = latest.type.toUpperCase();
+                
+                // 模拟一个进度
+                const randomProgress = Math.floor(Math.random() * 40) + 60;
+                document.getElementById('pb').style.width = randomProgress + '%';
+                document.getElementById('pt').innerText = randomProgress + ' / 100';
             }
         }
 
