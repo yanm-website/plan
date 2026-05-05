@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>专属日程规划 · 几何大师版</title>
+    <style>
+        /* 基础背景 */
+        body { background-color: #d8d8d8; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; overflow: hidden; touch-action: manipulation; }
+        
+        /* 主白板 */
+        .main-card { background: #ffffff; border-radius: 20px; box-shadow: 0 12px 40px rgba(0,0,0,0.15); width: 90%; max-width: 800px; min-height: 400px; padding: 50px 40px; text-align: center; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; }
+        
+        .status-badge { display: inline-block; padding: 8px 20px; border-radius: 30px; font-size: 1.2em; font-weight: bold; margin-bottom: 20px; letter-spacing: 1px; }
+        .status-active { background-color: #e8f5e9; color: #2e7d32; border: 2px solid #c8e6c9; }
+        .status-next { background-color: #e3f2fd; color: #1565c0; border: 2px solid #bbdefb; }
+        .status-none { background-color: #eeeeee; color: #757575; border: 2px solid #e0e0e0; }
+
+        .task-title { font-size: 3.5em; font-weight: bold; color: #111; margin-bottom: 10px; word-wrap: break-word; line-height: 1.2; width: 100%; }
+        .task-time { font-size: 1.8em; color: #444; margin: 5px 0; font-weight: bold; }
+        
+        /* 进度条 */
+        .progress-container { width: 60%; min-width: 250px; height: 18px; background: #e0e0e0; border-radius: 20px; margin-top: 25px; overflow: hidden; display: none; }
+        .progress-fill { height: 100%; width: 0%; background: repeating-linear-gradient( -45deg, #111, #111 12px, #333 12px, #333 24px ); border-radius: 20px; transition: width 1s linear; }
+
+        /* 统一交互按钮 */
+        .btn-base { cursor: pointer; user-select: none; transition: transform 0.1s; -webkit-tap-highlight-color: transparent; }
+        .btn-base:active { transform: scale(0.95); }
+        
+        .add-btn { position: fixed; bottom: 40px; right: 40px; width: 70px; height: 70px; background: #222; color: #fff; border-radius: 50%; font-size: 45px; border: none; z-index: 999; display: flex; justify-content: center; align-items: center; box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+        .clear-btn { position: fixed; bottom: 40px; left: 40px; background: #fff; color: #d32f2f; padding: 15px 20px; border-radius: 12px; font-size: 1.1em; font-weight: bold; border: 2px solid #ffcdd2; z-index: 999; }
+        .all-plans-btn { position: fixed; top: 30px; left: 30px; background: #fff; color: #333; padding: 15px 20px; border-radius: 12px; font-size: 1.1em; font-weight: bold; border: 2px solid #ccc; z-index: 999; }
+        .settings-btn { position: fixed; top: 30px; right: 30px; width: 55px; height: 55px; background: #fff; border-radius: 50%; border: 3px solid #ddd; font-size: 30px; z-index: 999; display: flex; justify-content: center; align-items: center; }
+
+        /* 全屏列表界面 */
+        .all-plans-fullscreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 2000; flex-direction: column; overflow: hidden; }
+        .ui-back-btn { position: absolute; top: 20px; left: 20px; width: 45px; height: 45px; border: 2px solid #000; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; background: #fff; z-index: 2100; }
+        
+        .dynamic-island { background: #111; border-radius: 40px; padding: 15px 25px; width: 60%; min-width: 280px; margin: 80px auto 20px auto; display: flex; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .dynamic-island input { background: transparent; border: none; color: #fff; flex: 1; outline: none; font-size: 1.1em; }
+        
+        .task-list-container { flex: 1; overflow-y: auto; padding: 20px 60px 80px 60px; }
+        .date-group-header { font-size: 2.2em; font-weight: bold; border-bottom: 2px solid #ddd; margin: 30px 0 25px 0; padding-bottom: 10px; text-align: left; }
+        
+        /* 列表网格间距 */
+        .date-group-cards { display: flex; flex-wrap: wrap; gap: 40px; justify-content: flex-start; padding: 20px 15px; }
+        
+        /* 列表任务卡片 */
+        .list-card { background: #e8e8e8; border-radius: 16px; padding: 20px; width: 240px; min-height: 120px; position: relative; border: 2px solid transparent; text-align: left; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        .type-exam { background: #ffebee; border-color: #ef9a9a; }
+        .type-vacation { background: #e8f5e9; border-color: #a5d6a7; }
+        
+        /* ================= 核心突破点：十字定位破形按钮 ================= */
+        /* 卡片上的编辑和删除：尺寸放大，圆心死死钉在坐标 (0,0) 上 */
+        .card-ui-btn { position: absolute; width: 44px; height: 44px; background: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; border: 2px solid #ccc; font-size: 22px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 5; }
+        .card-edit { top: -22px; left: -22px; color: #333; }
+        .card-del { top: -22px; right: -22px; color: #d32f2f; font-weight: bold; font-size: 24px; }
+
+        /* 模态弹窗 */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 3000; justify-content: center; align-items: center; }
+        .modal-content { background: #fff; padding: 50px 30px 30px 30px; border-radius: 20px; width: 90%; max-width: 600px; position: relative; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        
+        /* 弹窗内的勾和叉：尺寸变大，圆心严格对准物理边缘中心 */
+        .modal-ui-btn { position: absolute; width: 56px; height: 56px; background: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 28px; font-weight: bold; border: 2px solid #ccc; box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 5; }
+        .modal-save { top: -28px; left: -28px; color: #2e7d32; }
+        .modal-close { top: -28px; right: -28px; color: #d32f2f; }
+        /* ================================================================= */
+
+        .input-full { width: 100%; padding: 15px; margin: 12px 0; border: 2px solid #eee; border-radius: 10px; box-sizing: border-box; font-size: 1.1em; }
+        
+        /* 时间行排版 */
+        .time-row-single { display: flex; align-items: center; justify-content: center; margin: 15px 0; font-size: 1.05em; font-weight: bold; white-space: nowrap; }
+        .time-row-single input { text-align: center; padding: 8px 2px; border: 2px solid #eee; border-radius: 6px; font-size: 1em; margin: 0 4px; }
+        .time-label-box { width: 80px; text-align: right; margin-right: 10px; color: #555; }
+
+        /* ================= 修复：二次确认弹窗样式恢复 ================= */
+        .confirm-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 4000; }
+        .confirm-box { background: #fff; width: 320px; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 15px 35px rgba(0,0,0,0.2); }
+        .confirm-msg { padding: 35px 25px; text-align: center; font-size: 1.2em; font-weight: bold; color: #222; border-bottom: 1px solid #eaeaea; }
+        /* ================================================================= */
+    </style>
+</head>
+<body>
+
+    <!-- 主白板 -->
+    <div class="main-card">
+        <div id="status-label" class="status-badge status-none">同步中...</div>
+        <div id="show-name" class="task-title">连接云端大脑</div>
+        <div id="show-time" class="task-time">--:--</div>
+        <div id="sync-status" style="font-size: 0.8em; color: #aaa; margin-top: 10px;">☁️ 数据准备中</div>
+        <div id="progress-box" class="progress-container">
+            <div id="progress-bar" class="progress-fill"></div>
+        </div>
+    </div>
+
+    <!-- 底部及顶部操作按钮 -->
+    <div class="all-plans-btn btn-base" onclick="openAllPlans()">所有计划</div>
+    <div class="clear-btn btn-base" onclick="initClearAll()">🗑️ 清空所有</div>
+    <div class="settings-btn btn-base" onclick="handleExport()">⚙️</div>
+    <div class="add-btn btn-base" onclick="openEdit(-1)">+</div>
+
+    <!-- 全屏计划列表 -->
+    <div id="all-plans-screen" class="all-plans-fullscreen">
+        <div class="ui-back-btn btn-base" onclick="closeAllPlans()">←</div>
+        <div class="dynamic-island">
+            <input type="text" id="search-input" placeholder="输入日期 (如: 23) 按回车搜索" onkeydown="if(event.key==='Enter') doSearch()">
+            <span style="color:#fff; cursor:pointer; font-size: 1.5em;" onclick="doSearch()">🔍</span>
+        </div>
+        <div id="task-list-box" class="task-list-container"></div>
+    </div>
+
+    <!-- 编辑/新建弹窗 -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <!-- 勾和叉圆心死死咬合物理顶点 -->
+            <div class="modal-ui-btn modal-save btn-base" onclick="handleSave()">✔</div>
+            <div class="modal-ui-btn modal-close btn-base" onclick="closeEdit()">✖</div>
+            
+            <input type="text" id="in-name" class="input-full" placeholder="任务名称">
+            
+            <select id="in-type" class="input-full">
+                <option value="learning">📚 学习</option>
+                <option value="exam">🔥 考试</option>
+                <option value="vacation">🌴 假期</option>
+            </select>
+
+            <div class="time-row-single">
+                <div class="time-label-box">开始时间</div>
+                <input type="text" id="s-y" style="width:50px"> 年 
+                <input type="text" id="s-m" style="width:32px"> 月 
+                <input type="text" id="s-d" style="width:32px"> 日 
+                <input type="text" id="s-h" style="width:32px; margin-left:10px"> : 
+                <input type="text" id="s-min" style="width:32px">
+                <select id="s-ap"><option>AM</option><option>PM</option></select>
+            </div>
+
+            <div class="time-row-single">
+                <div class="time-label-box">结束时间</div>
+                <input type="text" id="e-y" style="width:50px"> 年 
+                <input type="text" id="e-m" style="width:32px"> 月 
+                <input type="text" id="e-d" style="width:32px"> 日 
+                <input type="text" id="e-h" style="width:32px; margin-left:10px"> : 
+                <input type="text" id="e-min" style="width:32px">
+                <select id="e-ap"><option>AM</option><option>PM</option></select>
+            </div>
+
+            <input type="text" id="in-loc" class="input-full" placeholder="地点">
+            <input type="text" id="in-rem" class="input-full" placeholder="备注">
+        </div>
+    </div>
+
+    <!-- 二次确认弹窗 (已经重新披上隐身衣) -->
+    <div class="confirm-modal-overlay" id="custom-confirm">
+        <div class="confirm-box">
+            <div class="confirm-msg" id="confirm-text">您确定要清空所有吗？</div>
+            <div style="display:flex; height:50px;">
+                <div style="flex:1; display:flex; justify-content:center; align-items:center; font-size:1.1em; cursor:pointer; font-weight:bold; background:#fff; border-right:1px solid #eaeaea; color:#007aff;" class="btn-base" onclick="cancelClear()">取消</div>
+                <div style="flex:1; display:flex; justify-content:center; align-items:center; font-size:1.1em; cursor:pointer; font-weight:bold; background:#fff; color:#ff3b30;" class="btn-base" onclick="proceedClear()">确定</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BIN_ID = "69f966eeaaba8821977110ff";
+        const KEY = "$2a$10$wMi0hs1j8z3avrDPrAIDEeBxC15MlrFUV9SIdKMxtYwQHKCw76GDy";
+        const URL = "https://api.jsonbin.io/v3/b/" + BIN_ID;
+
+        let myTasks = [];
+        let curIdx = -1;
+
+        async function initApp() {
+            const cached = localStorage.getItem('task_cache');
+            if(cached) { myTasks = JSON.parse(cached); renderMain(); }
+            await fetchCloud();
+        }
+
+        async function fetchCloud() {
+            document.getElementById('sync-status').innerText = "☁️ 正在抓取云端数据...";
+            try {
+                const res = await fetch(URL, { headers: { "X-Master-Key": KEY }});
+                const data = await res.json();
+                myTasks = data.record.tasks || [];
+                localStorage.setItem('task_cache', JSON.stringify(myTasks));
+                document.getElementById('sync-status').innerText = "✅ 数据已实时同步";
+                renderMain();
+            } catch(e) { document.getElementById('sync-status').innerText = "❌ 连接失败，当前为本地模式"; }
+        }
+
+        async function saveCloud() {
+            document.getElementById('sync-status').innerText = "📤 正在上传至云端...";
+            localStorage.setItem('task_cache', JSON.stringify(myTasks));
+            try {
+                await fetch(URL, {
+                    method: 'PUT',
+                    headers: { "Content-Type": "application/json", "X-Master-Key": KEY },
+                    body: JSON.stringify({ tasks: myTasks })
+                });
+                document.getElementById('sync-status').innerText = "✅ 云端保存成功";
+            } catch(e) { alert("云端保存失败！"); }
+        }
+
+        function renderMain() {
+            const label = document.getElementById('status-label');
+            const title = document.getElementById('show-name');
+            const time = document.getElementById('show-time');
+            const pBox = document.getElementById('progress-box');
+            const pBar = document.getElementById('progress-bar');
+
+            if(myTasks.length === 0) {
+                label.className = "status-badge status-none"; label.innerText = "暂无计划";
+                title.innerText = "开启你的第一笔计划吧"; time.innerText = "--:--"; pBox.style.display = "none"; return;
+            }
+
+            const now = new Date();
+            const pad = (n) => n.toString().padStart(2, '0');
+            const nowTag = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+            myTasks.sort((a,b) => a.startDT.localeCompare(b.startDT));
+            let active = myTasks.find(t => t.startDT <= nowTag && t.endDT >= nowTag);
+            let next = myTasks.find(t => t.startDT > nowTag);
+
+            let displayTask = null;
+
+            if(active) {
+                displayTask = active;
+                label.className = "status-badge status-active"; label.innerText = "● 正在进行";
+                pBox.style.display = "block";
+                let sT = new Date(active.startDT.replace(/-/g, '/')).getTime();
+                let eT = new Date(active.endDT.replace(/-/g, '/')).getTime();
+                let pct = Math.min(100, Math.max(0, ((now.getTime() - sT) / (eT - sT)) * 100));
+                pBar.style.width = pct + "%";
+            } else if(next) {
+                displayTask = next;
+                label.className = "status-badge status-next"; label.innerText = "○ 下一个计划";
+                pBox.style.display = "none";
+            } else {
+                label.className = "status-badge status-none"; label.innerText = "今日计划已达标";
+                title.innerText = "享受自由时间"; time.innerText = "--:--"; pBox.style.display = "none"; return;
+            }
+
+            title.innerText = displayTask.name;
+            time.innerText = displayTask.dispS + " - " + displayTask.dispE;
+        }
+
+        function openEdit(i) {
+            curIdx = i;
+            document.getElementById('edit-modal').style.display = 'flex';
+            const now = new Date();
+            if(i === -1) {
+                document.getElementById('in-type').value = localStorage.getItem('lastType') || 'learning';
+                document.getElementById('s-y').value = localStorage.getItem('lastYear') || now.getFullYear();
+                document.getElementById('s-m').value = localStorage.getItem('lastMonth') || now.getMonth()+1;
+                document.getElementById('e-y').value = localStorage.getItem('lastYear') || now.getFullYear();
+                document.getElementById('e-m').value = localStorage.getItem('lastMonth') || now.getMonth()+1;
+                ['in-name','s-d','s-h','s-min','e-d','e-h','e-min','in-loc','in-rem'].forEach(id => document.getElementById(id).value = '');
+            } else {
+                let t = myTasks[i];
+                document.getElementById('in-name').value = t.name;
+                document.getElementById('in-type').value = t.type || 'learning';
+                document.getElementById('in-loc').value = t.loc;
+                document.getElementById('in-rem').value = t.remark;
+                let sP = t.startDT.split(' '); let sD = sP[0].split('-'); 
+                document.getElementById('s-y').value = sD[0]; document.getElementById('s-m').value = sD[1]; document.getElementById('s-d').value = sD[2];
+                let eP = t.endDT.split(' '); let eD = eP[0].split('-'); 
+                document.getElementById('e-y').value = eD[0]; document.getElementById('e-m').value = eD[1]; document.getElementById('e-d').value = eD[2];
+                
+                let sT = t.dispS.split(' '); document.getElementById('s-h').value = sT[0].split(':')[0]; document.getElementById('s-min').value = sT[0].split(':')[1]; document.getElementById('s-ap').value = sT[1];
+                let eT = t.dispE.split(' '); document.getElementById('e-h').value = eT[0].split(':')[0]; document.getElementById('e-min').value = eT[0].split(':')[1]; document.getElementById('e-ap').value = eT[1];
+            }
+        }
+
+        function closeEdit() { document.getElementById('edit-modal').style.display = 'none'; }
+
+        async function handleSave() {
+            const name = document.getElementById('in-name').value;
+            if(!name) return alert("必须填写任务名称！");
+            
+            const to24 = (h, m, ap) => {
+                let hr = parseInt(h);
+                if(ap === "PM" && hr !== 12) hr += 12;
+                if(ap === "AM" && hr === 12) hr = 0;
+                return hr.toString().padStart(2, '0') + ":" + m.padStart(2, '0');
+            };
+
+            const sY = document.getElementById('s-y').value, sM = document.getElementById('s-m').value, sD = document.getElementById('s-d').value;
+            const eY = document.getElementById('e-y').value, eM = document.getElementById('e-m').value, eD = document.getElementById('e-d').value;
+
+            localStorage.setItem('lastType', document.getElementById('in-type').value);
+            localStorage.setItem('lastYear', sY);
+            localStorage.setItem('lastMonth', sM);
+
+            const task = {
+                name, type: document.getElementById('in-type').value,
+                startDT: `${sY}-${sM.padStart(2,'0')}-${sD.padStart(2,'0')} ${to24(document.getElementById('s-h').value, document.getElementById('s-min').value, document.getElementById('s-ap').value)}`,
+                endDT: `${eY}-${eM.padStart(2,'0')}-${eD.padStart(2,'0')} ${to24(document.getElementById('e-h').value, document.getElementById('e-min').value, document.getElementById('e-ap').value)}`,
+                dispS: `${document.getElementById('s-h').value}:${document.getElementById('s-min').value} ${document.getElementById('s-ap').value}`,
+                dispE: `${document.getElementById('e-h').value}:${document.getElementById('e-min').value} ${document.getElementById('e-ap').value}`,
+                loc: document.getElementById('in-loc').value, remark: document.getElementById('in-rem').value
+            };
+
+            if(curIdx === -1) myTasks.push(task); else myTasks[curIdx] = task;
+            closeEdit();
+            renderMain();
+            await saveCloud();
+            if(document.getElementById('all-plans-screen').style.display === 'flex') doSearch();
+        }
+
+        function openAllPlans() { document.getElementById('all-plans-screen').style.display = 'flex'; doSearch(); }
+        function closeAllPlans() { document.getElementById('all-plans-screen').style.display = 'none'; }
+
+        function doSearch() {
+            let val = document.getElementById('search-input').value.trim();
+            let filtered = myTasks.map((t, i) => ({...t, origIdx: i}));
+
+            if (val) {
+                let dayMatch = val.match(/^(\d{1,2})$/);
+                let searchPrefix = "";
+                if (dayMatch) {
+                    let now = new Date(); 
+                    searchPrefix = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${dayMatch[1].padStart(2, '0')}`;
+                } else {
+                    let fullMatch = val.match(/(\d{4})[/\.年Yy](\d{1,2})[/\.月Mm](\d{1,2})[日Dd]?/);
+                    if (fullMatch) searchPrefix = `${fullMatch[1]}-${fullMatch[2].padStart(2, '0')}-${fullMatch[3].padStart(2, '0')}`;
+                }
+                if(searchPrefix) filtered = filtered.filter(item => item.startDT.startsWith(searchPrefix));
+            }
+
+            const box = document.getElementById('task-list-box'); box.innerHTML = "";
+            let grouped = {};
+            filtered.forEach(item => {
+                let day = item.startDT.split(' ')[0].replace(/-/g, '.');
+                if(!grouped[day]) grouped[day] = [];
+                grouped[day].push(item);
+            });
+
+            Object.keys(grouped).sort().forEach(day => {
+                let h = document.createElement('div'); h.className = 'date-group-header'; h.innerText = day;
+                box.appendChild(h);
+                let g = document.createElement('div'); g.className = 'date-group-cards';
+                grouped[day].forEach(t => {
+                    let c = document.createElement('div');
+                    c.className = `list-card type-${t.type || 'learning'}`;
+                    c.innerHTML = `
+                        <div class="card-ui-btn card-edit btn-base" onclick="openEdit(${t.origIdx})">📝</div>
+                        <div class="card-ui-btn card-del btn-base" onclick="handleDel(${t.origIdx})">×</div>
+                        <div style="font-weight:bold; font-size:1.3em; margin-bottom:10px;">${t.name}</div>
+                        <div style="font-size:1em; color:#333; margin-bottom:5px;">${t.dispS} - ${t.dispE}</div>
+                        <div style="font-size:0.9em; color:#666;">${t.loc ? '地点: '+t.loc : ''}</div>
+                    `;
+                    g.appendChild(c);
+                });
+                box.appendChild(g);
+            });
+        }
+
+        async function handleDel(i) {
+            if(confirm("确定永久删除此项计划？")) { myTasks.splice(i, 1); doSearch(); renderMain(); await saveCloud(); }
+        }
+
+        let clearStep = 0;
+        function initClearAll() { clearStep = 1; document.getElementById('confirm-text').innerText = "您确定要清空所有吗？"; document.getElementById('confirm-text').style.color = "#222"; document.getElementById('custom-confirm').style.display = 'flex'; }
+        function cancelClear() { clearStep = 0; document.getElementById('custom-confirm').style.display = 'none'; }
+        async function proceedClear() {
+            if (clearStep === 1) { clearStep = 2; document.getElementById('confirm-text').innerText = "您真的确定要清空所有吗？"; document.getElementById('confirm-text').style.color = "#d32f2f"; } 
+            else if (clearStep === 2) { myTasks = []; renderMain(); if(document.getElementById('all-plans-screen').style.display === 'flex') doSearch(); cancelClear(); await saveCloud(); }
+        }
+
+        function handleExport() {
+            const blob = new Blob([JSON.stringify({tasks: myTasks})], {type: "application/json"});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "我的日程备份.json"; a.click();
+        }
+
+        window.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if(document.getElementById('custom-confirm').style.display === 'flex') cancelClear();
+                else if(document.getElementById('edit-modal').style.display === 'flex') closeEdit();
+                else if(document.getElementById('all-plans-screen').style.display === 'flex') closeAllPlans();
+            }
+        });
+
+        window.onload = initApp;
+        setInterval(renderMain, 1000);
+    </script>
+</body>
+</html>
